@@ -1,4 +1,6 @@
-# ml with mutational signatures
+# Simple machine learning
+
+A simple wrapper around scikit-learn for quick prototyping
 
 ## Installation
 
