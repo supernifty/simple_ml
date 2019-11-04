@@ -113,7 +113,7 @@ def ml(x_fn, y_fn, normalise, show_features, regularise, methods, shuffle, test_
 
   xs = []
   header = None
-  missing_data = 0
+  missing_data = []
   for idx, row in enumerate(csv.reader(open(x_fn, 'r'), delimiter='\t')):
     if header is None:
       header = row
@@ -127,12 +127,13 @@ def ml(x_fn, y_fn, normalise, show_features, regularise, methods, shuffle, test_
       xs.append([float(x) for x in row])
     except ValueError:
       logging.debug('excluding line %i due to missing or non-numeric data', idx + 1)
+      missing_data.insert(idx, 0)
+
+  if len(missing_data) > 0:
+    logging.warn('excluding %i rows due to missing or non-numeric data', len(missing_data))
+    for idx in missing_data:
       classes[ys[idx]] -= 1
       del ys[idx]
-      missing_data += 1
-
-  if missing_data > 0:
-    logging.warn('excluded %i rows due to missing or non-numeric data', missing_data)
 
   xs = np.array(xs)
   ys = np.array(ys)
