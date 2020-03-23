@@ -16,3 +16,9 @@ pip install -r requirements.txt
 ```
 python ml.py --verbose --X X.tsv --y y.tsv
 ```
+
+### Relationships
+
+```
+python simple_ml/explore.py --xs "Sepal Length" "Petal Length" --y "Sepal Width" --delimiter ',' < test/iris.data
+```
