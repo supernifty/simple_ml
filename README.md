@@ -19,6 +19,12 @@ python ml.py --verbose --X X.tsv --y y.tsv
 
 ### Relationships
 
+Linear regression + correlation
 ```
 python simple_ml/explore.py --xs "Sepal Length" "Petal Length" --y "Sepal Width" --delimiter ',' < test/iris.data
+```
+
+Correlation matrix
+```
+python simple_ml/correlation.py --cols "Sepal Length" "Sepal Width" "Petal Length" "Petal Width" --delimiter ',' < test/iris.data
 ```
