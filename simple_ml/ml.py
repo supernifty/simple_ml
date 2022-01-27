@@ -8,6 +8,7 @@ import collections
 import csv
 import logging
 import operator
+import random
 import sys
 
 import numpy as np
@@ -29,7 +30,7 @@ class NoShuffle(object):
     result = [(es, es)] * self.n
     return result
 
-def get_predictor(name, regularise, sparsity):
+def get_predictor(name, regularise, sparsity, seed):
     if name == 'logistic':
       predictor = sklearn.linear_model.LogisticRegression(solver='liblinear', multi_class='auto', class_weight='balanced')
     elif name == 'lasso':
@@ -41,9 +42,9 @@ def get_predictor(name, regularise, sparsity):
     # random forest
     elif name == 'rf':
       if regularise is not None:
-        predictor = sklearn.ensemble.RandomForestClassifier(n_estimators=30, max_depth=regularise, class_weight='balanced')
+        predictor = sklearn.ensemble.RandomForestClassifier(n_estimators=30, max_depth=regularise, class_weight='balanced', random_state=seed)
       else:
-        predictor = sklearn.ensemble.RandomForestClassifier(n_estimators=30, class_weight='balanced')
+        predictor = sklearn.ensemble.RandomForestClassifier(n_estimators=30, class_weight='balanced', random_state=seed)
 
     elif name == 'dt':
       if regularise is not None:
@@ -131,8 +132,12 @@ def get_xs(x_fn, ys=None, classes=None, exclude=set()):
   xs = np.array(xs)
   return header, xs
 
-def ml(x_fn, y_fn, normalise, show_features, regularise, methods, shuffle, test_size, show_confusion, show_rule, include_classes, classify, sparsity):
+def ml(x_fn, y_fn, normalise, show_features, regularise, methods, shuffle, test_size, show_confusion, show_rule, include_classes, classify, sparsity, seed):
   logging.info('starting...')
+
+  if seed is not None:
+    logging.info('setting seed to %i', seed)
+    random.seed(seed)
 
   ys = []
   classes = collections.defaultdict(int)
@@ -209,7 +214,7 @@ def ml(x_fn, y_fn, normalise, show_features, regularise, methods, shuffle, test_
     coeffs = collections.defaultdict(list)
     
     for train_idx, test_idx in shuffler.split(xs, ys):
-      predictor = get_predictor(method, regularise, sparsity)
+      predictor = get_predictor(method, regularise, sparsity, seed)
       fit_predictor = predictor.fit(xs[train_idx], ys[train_idx])
       #test_score = fit_predictor.score(xs[test_idx], ys[test_idx])
       test_score = sklearn.metrics.balanced_accuracy_score(ys[test_idx], fit_predictor.predict(xs[test_idx]))
@@ -267,15 +272,16 @@ def ml(x_fn, y_fn, normalise, show_features, regularise, methods, shuffle, test_
       header, xs_to_classify = get_xs(classify)
       logging.info('%i records to classify', len(xs_to_classify))
       predictions = fit_predictor.predict(xs_to_classify)
+      prediction_probs = fit_predictor.predict_proba(xs_to_classify)
 
       # write to input file.method
       prediction_fn = '{}.predictions.{}'.format(classify, method)
       with open(prediction_fn, 'w') as classify_out:
         # write header
-        classify_out.write('{}\tPrediction\n'.format('\t'.join(header)))
+        classify_out.write('{}\tPrediction\t{}\n'.format('\t'.join(header), '\t'.join(fit_predictor.classes_)))
         # write results
-        for x, y in zip(xs_to_classify, predictions):
-          classify_out.write('{}\t{}\n'.format('\t'.join([str(z) for z in x]), y))
+        for x, y, z in zip(xs_to_classify, predictions, prediction_probs):
+          classify_out.write('{}\t{}\t{}\n'.format('\t'.join([str(z) for z in x]), y, '\t'.join(['{:.2f}'.format(m) for m in z])))
       logging.info('wrote results to %s', prediction_fn)
       importance = {}
       for f, v in zip(header, get_importance(method, fit_predictor, ys)):
@@ -329,11 +335,12 @@ if __name__ == '__main__':
   parser.add_argument('--name', required=False, default='experiment', help='experiment name to write out')
   parser.add_argument('--shuffle', action='store_true', help='test result when labels are shuffled')
   parser.add_argument('--classify', required=False, help='use method to classify input file, writes to filename.method')
+  parser.add_argument('--seed', required=False, type=int, help='random seed')
   args = parser.parse_args()
   if args.verbose:
     logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
   else:
     logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
 
-  result = ml(args.X, args.y, args.normalise, args.show_features, args.regularise, args.methods, args.shuffle, args.test_size, args.show_confusion, args.show_rule, args.include_classes, args.classify, args.sparsity)
+  result = ml(args.X, args.y, args.normalise, args.show_features, args.regularise, args.methods, args.shuffle, args.test_size, args.show_confusion, args.show_rule, args.include_classes, args.classify, args.sparsity, args.seed)
   write(result, args.name, sys.stdout)
